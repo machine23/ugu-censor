@@ -27,4 +27,9 @@ func TestCensor_CensorText(t *testing.T) {
 	// single word
 	f("игра", "****", true)
 	f("яблоко", "******", true)
+
+	// case insensitive
+	f("Игра", "****", true)
+	f("ИГРА", "****", true)
+	f("ЯбЛоКо", "******", true)
 }

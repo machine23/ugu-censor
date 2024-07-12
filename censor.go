@@ -38,9 +38,10 @@ func (c *Censor) CensorText(text string, langs ...string) (string, bool) {
 }
 
 func (c *Censor) isBadWord(word string, langs ...string) bool {
+	w := strings.ToLower(word)
 	for _, lang := range langs {
 		if dict, ok := c.dicts[lang]; ok {
-			if dict.Search(word) {
+			if dict.Search(w) {
 				return true
 			}
 		}
