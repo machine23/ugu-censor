@@ -23,4 +23,8 @@ func TestCensor_CensorText(t *testing.T) {
 
 	f("", "", false)
 	f("Это чистый текст.", "Это чистый текст.", false)
+
+	// single word
+	f("игра", "****", true)
+	f("яблоко", "******", true)
 }
