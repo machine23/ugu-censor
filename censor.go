@@ -2,6 +2,7 @@ package ugucensor
 
 import (
 	"strings"
+	"unicode"
 
 	"github.com/machine23/ugu-censor/trie"
 )
@@ -30,11 +31,43 @@ func (c *Censor) AddWords(words []string, lang string) {
 }
 
 func (c *Censor) CensorText(text string, langs ...string) (string, bool) {
-	if c.isBadWord(text, langs...) {
-		return strings.Repeat("*", len([]rune(text))), true
+	var result strings.Builder
+	var word strings.Builder
+	var censored bool
+
+	// var start, end int
+	for _, ch := range text {
+		if unicode.IsSpace(ch) {
+			if word.Len() > 0 {
+				w := word.String()
+				isBad := c.isBadWord(w, langs...)
+				if isBad {
+					censored = true
+					result.WriteString(strings.Repeat("*", len([]rune(w))))
+				} else {
+					result.WriteString(w)
+				}
+				word.Reset()
+			}
+
+			result.WriteRune(ch)
+		} else {
+			word.WriteRune(ch)
+		}
 	}
 
-	return text, false
+	if word.Len() > 0 {
+		w := word.String()
+		isBad := c.isBadWord(w, langs...)
+		if isBad {
+			censored = true
+			result.WriteString(strings.Repeat("*", len([]rune(w))))
+		} else {
+			result.WriteString(w)
+		}
+	}
+
+	return result.String(), censored
 }
 
 func (c *Censor) isBadWord(word string, langs ...string) bool {
