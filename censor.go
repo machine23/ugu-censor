@@ -32,47 +32,83 @@ func (c *Censor) AddWords(words []string, lang string) {
 
 func (c *Censor) CensorText(text string, langs ...string) (string, bool) {
 	var result strings.Builder
+	var word strings.Builder
+	var cleanWord strings.Builder
+	var postPrefix strings.Builder
+	var hasPrefix, isBad bool
 	censored := false
 
-	textRunes := []rune(text) // Convert the text to a slice of runes for proper Unicode handling
-	wordStart := -1           // Use -1 to indicate that we're not currently tracking a word
+	runes := []rune(text)
+	for i, ch := range runes {
+		isLetter := unicode.IsLetter(ch)
 
-	// Helper function to process and potentially censor a word
-	processWord := func(wordEnd int) {
-		if wordStart != -1 { // We have a word to process
-			word := string(textRunes[wordStart:wordEnd])
-			if c.isBadWord(word, langs...) {
-				censored = true
-				result.WriteString(strings.Repeat("*", wordEnd-wordStart))
-			} else {
-				result.WriteString(word)
+		if isLetter {
+			if postPrefix.Len() > 0 && hasPrefix {
+				word.WriteString(postPrefix.String())
+				postPrefix.Reset()
+			} else if postPrefix.Len() > 0 {
+				result.WriteString(postPrefix.String())
+				postPrefix.Reset()
 			}
-			wordStart = -1 // Reset wordStart for the next word
+			word.WriteRune(ch)
+			cleanWord.WriteRune(unicode.ToLower(ch))
+		} else {
+			postPrefix.WriteRune(ch)
+		}
+
+		if !isLetter || i == len(runes)-1 {
+			cleanWordStr := cleanWord.String()
+			hasPrefix, isBad = c.isBadWord(cleanWordStr, langs...)
+			if hasPrefix && !isBad {
+				continue
+			}
+
+			if isBad {
+				censored = true
+				result.WriteString(strings.Repeat("*", len([]rune(word.String()))))
+				result.WriteString(postPrefix.String())
+				postPrefix.Reset()
+				word.Reset()
+				cleanWord.Reset()
+				continue
+			}
+
+			if !hasPrefix || i == len(runes)-1 {
+
+				result.WriteString(word.String())
+				result.WriteString(postPrefix.String())
+				postPrefix.Reset()
+				word.Reset()
+				cleanWord.Reset()
+			}
 		}
 	}
 
-	for i, ch := range textRunes {
-		if unicode.IsSpace(ch) || !unicode.IsLetter(ch) {
-			processWord(i)       // Process the word ending at the current index
-			result.WriteRune(ch) // Write the non-word character to the result
-		} else if wordStart == -1 {
-			wordStart = i // Start a new word
-		}
+	if postPrefix.Len() > 0 {
+		result.WriteString(postPrefix.String())
 	}
-
-	processWord(len(textRunes)) // Process the last word, if any
 
 	return result.String(), censored
 }
 
-func (c *Censor) isBadWord(word string, langs ...string) bool {
-	w := strings.ToLower(word)
+func (c *Censor) isBadWord(word string, langs ...string) (bool, bool) {
+	word = strings.ToLower(word)
+	var hasPrefix, isCompleteWord bool
 	for _, lang := range langs {
 		if dict, ok := c.dicts[lang]; ok {
-			if dict.Search(w) {
-				return true
+			hasPrefix, isCompleteWord = dict.StartsWith(word)
+			if isCompleteWord {
+				return true, true
 			}
 		}
 	}
-	return false
+
+	return hasPrefix, false
+}
+
+func (c Censor) charFilter(ch rune) rune {
+	if unicode.IsLetter(ch) {
+		return ch
+	}
+	return -1
 }
