@@ -32,32 +32,35 @@ func (c *Censor) AddWords(words []string, lang string) {
 
 func (c *Censor) CensorText(text string, langs ...string) (string, bool) {
 	var result strings.Builder
-	var word strings.Builder
-	var censored bool
+	censored := false
 
-	processWord := func() {
-		if word.Len() > 0 {
-			w := word.String()
-			if c.isBadWord(w, langs...) {
+	textRunes := []rune(text) // Convert the text to a slice of runes for proper Unicode handling
+	wordStart := -1           // Use -1 to indicate that we're not currently tracking a word
+
+	// Helper function to process and potentially censor a word
+	processWord := func(wordEnd int) {
+		if wordStart != -1 { // We have a word to process
+			word := string(textRunes[wordStart:wordEnd])
+			if c.isBadWord(word, langs...) {
 				censored = true
-				result.WriteString(strings.Repeat("*", len([]rune(w))))
+				result.WriteString(strings.Repeat("*", wordEnd-wordStart))
 			} else {
-				result.WriteString(w)
+				result.WriteString(word)
 			}
-			word.Reset()
+			wordStart = -1 // Reset wordStart for the next word
 		}
 	}
 
-	for _, ch := range text {
+	for i, ch := range textRunes {
 		if unicode.IsSpace(ch) || !unicode.IsLetter(ch) {
-			processWord()
-			result.WriteRune(ch)
-		} else {
-			word.WriteRune(ch)
+			processWord(i)       // Process the word ending at the current index
+			result.WriteRune(ch) // Write the non-word character to the result
+		} else if wordStart == -1 {
+			wordStart = i // Start a new word
 		}
 	}
 
-	processWord() // Process the last word if any
+	processWord(len(textRunes)) // Process the last word, if any
 
 	return result.String(), censored
 }
