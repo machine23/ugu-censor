@@ -5,21 +5,36 @@ import (
 	"unicode"
 
 	"github.com/machine23/ugu-censor/trie"
+	ugustemmer "github.com/machine23/ugu-stemmer"
 )
 
+type Stemmer interface {
+	Stem(word string) string
+}
+
 type Censor struct {
-	dicts map[string]*trie.Trie
+	dicts    map[string]*trie.Trie
+	stemmers map[string]Stemmer
 }
 
 func NewCensor() *Censor {
 	return &Censor{
-		dicts: make(map[string]*trie.Trie),
+		dicts:    make(map[string]*trie.Trie),
+		stemmers: make(map[string]Stemmer),
 	}
 }
 
 func (c *Censor) AddWord(word string, lang string) {
+	stemmer, ok := c.stemmers[lang]
+	if !ok {
+		stemmer = ugustemmer.NewSnowballStemmer(lang)
+		c.stemmers[lang] = stemmer
+	}
 	if _, ok := c.dicts[lang]; !ok {
 		c.dicts[lang] = trie.NewTrie()
+	}
+	if stemmer != nil {
+		word = stemmer.Stem(word)
 	}
 	c.dicts[lang].Insert(word)
 }
@@ -96,6 +111,10 @@ func (c *Censor) isBadWord(word string, langs ...string) (bool, bool) {
 	var hasPrefix, isCompleteWord bool
 	for _, lang := range langs {
 		if dict, ok := c.dicts[lang]; ok {
+			stemmer := c.stemmers[lang]
+			if stemmer != nil {
+				word = stemmer.Stem(word)
+			}
 			hasPrefix, isCompleteWord = dict.StartsWith(word)
 			if isCompleteWord {
 				return true, true
