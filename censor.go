@@ -35,37 +35,29 @@ func (c *Censor) CensorText(text string, langs ...string) (string, bool) {
 	var word strings.Builder
 	var censored bool
 
-	// var start, end int
-	for _, ch := range text {
-		if unicode.IsSpace(ch) {
-			if word.Len() > 0 {
-				w := word.String()
-				isBad := c.isBadWord(w, langs...)
-				if isBad {
-					censored = true
-					result.WriteString(strings.Repeat("*", len([]rune(w))))
-				} else {
-					result.WriteString(w)
-				}
-				word.Reset()
+	processWord := func() {
+		if word.Len() > 0 {
+			w := word.String()
+			if c.isBadWord(w, langs...) {
+				censored = true
+				result.WriteString(strings.Repeat("*", len([]rune(w))))
+			} else {
+				result.WriteString(w)
 			}
+			word.Reset()
+		}
+	}
 
+	for _, ch := range text {
+		if unicode.IsSpace(ch) || !unicode.IsLetter(ch) {
+			processWord()
 			result.WriteRune(ch)
 		} else {
 			word.WriteRune(ch)
 		}
 	}
 
-	if word.Len() > 0 {
-		w := word.String()
-		isBad := c.isBadWord(w, langs...)
-		if isBad {
-			censored = true
-			result.WriteString(strings.Repeat("*", len([]rune(w))))
-		} else {
-			result.WriteString(w)
-		}
-	}
+	processWord() // Process the last word if any
 
 	return result.String(), censored
 }
