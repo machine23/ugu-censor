@@ -66,9 +66,12 @@ func (c *Censor) CensorText(text string, langs ...string) (string, bool) {
 				postPrefix.Reset()
 			}
 			word.WriteRune(ch)
-			cleanWord.WriteRune(unicode.ToLower(ch))
 		} else {
 			postPrefix.WriteRune(ch)
+		}
+		x := c.filterCharacter(ch)
+		if x != -1 {
+			cleanWord.WriteRune(c.filterCharacter(ch))
 		}
 
 		if !isLetter || i == len(runes)-1 {
@@ -125,7 +128,8 @@ func (c *Censor) isBadWord(word string, langs ...string) (bool, bool) {
 	return hasPrefix, false
 }
 
-func (c Censor) charFilter(ch rune) rune {
+func (c Censor) filterCharacter(ch rune) rune {
+	ch = unicode.ToLower(ch)
 	if unicode.IsLetter(ch) {
 		return ch
 	}
