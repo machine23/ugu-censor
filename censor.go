@@ -1,6 +1,7 @@
 package ugucensor
 
 import (
+	"fmt"
 	"strings"
 	"unicode"
 
@@ -45,93 +46,108 @@ func (c *Censor) AddWords(words []string, lang string) {
 	}
 }
 
-func (c *Censor) CensorText(text string, langs ...string) (string, bool) {
+func (c *Censor) CensorText(text string, lang string) (string, bool) {
 	var result strings.Builder
+	var censored bool
+	var possibleBadPart strings.Builder
 	var word strings.Builder
-	var cleanWord strings.Builder
-	var postPrefix strings.Builder
-	var hasPrefix, isBad bool
-	censored := false
+	var rawWord strings.Builder
+	var postWord strings.Builder
+	var endOfWord bool
+	var inWord bool
+
+	var hasBadPrefix bool
+	var hasBadPart bool
+	var hasBadWord bool
+	var badWord string
+
+	cursor := c.dicts[lang].Cursor()
 
 	runes := []rune(text)
+	lenRunes := len(runes)
+	newWord := true
 	for i, ch := range runes {
-		isLetter := unicode.IsLetter(ch)
-
-		if isLetter {
-			if postPrefix.Len() > 0 && hasPrefix {
-				word.WriteString(postPrefix.String())
-				postPrefix.Reset()
-			} else if postPrefix.Len() > 0 {
-				result.WriteString(postPrefix.String())
-				postPrefix.Reset()
+		if unicode.IsLetter(ch) {
+			inWord = inWord || true
+		}
+		if inWord {
+			if unicode.IsLetter(ch) {
+				if postWord.Len() > 0 {
+					rawWord.WriteString(postWord.String())
+					postWord.Reset()
+				}
+				rawWord.WriteRune(ch)
+				word.WriteRune(ch)
+			} else {
+				postWord.WriteRune(ch)
 			}
-			word.WriteRune(ch)
 		} else {
-			postPrefix.WriteRune(ch)
-		}
-		x := c.filterCharacter(ch)
-		if x != -1 {
-			cleanWord.WriteRune(c.filterCharacter(ch))
+			result.WriteRune(ch)
+			continue
 		}
 
-		if !isLetter || i == len(runes)-1 {
-			cleanWordStr := cleanWord.String()
-			hasPrefix, isBad = c.isBadWord(cleanWordStr, langs...)
-			if hasPrefix && !isBad {
-				continue
-			}
+		if unicode.IsLetter(ch) {
+			if newWord || hasBadPrefix {
+				newWord = false
 
-			if isBad {
-				censored = true
-				result.WriteString(strings.Repeat("*", len([]rune(word.String()))))
-				result.WriteString(postPrefix.String())
-				postPrefix.Reset()
-				word.Reset()
-				cleanWord.Reset()
-				continue
+				hasBadPrefix, hasBadPart = cursor.Advance(unicode.ToLower(ch))
+				if hasBadPrefix {
+					inWord = true
+					possibleBadPart.WriteRune(unicode.ToLower(ch))
+					if hasBadPart {
+						hasBadWord = true
+						badWord = possibleBadPart.String()
+					}
+					if i < lenRunes-1 {
+						continue
+					}
+				}
 			}
-
-			if !hasPrefix || i == len(runes)-1 {
-
-				result.WriteString(word.String())
-				result.WriteString(postPrefix.String())
-				postPrefix.Reset()
-				word.Reset()
-				cleanWord.Reset()
-			}
+		} else {
+			endOfWord = !newWord && !hasBadPrefix
 		}
+
+		endOfWord = endOfWord || i == lenRunes-1
+
+		// write result
+		// fmt.Println(i, word.String())
+
+		if endOfWord {
+			fmt.Println("word", word.String())
+			if hasBadWord {
+				stemmer := c.stemmers[lang]
+				var isBadWord bool
+				if stemmer != nil {
+					isBadWord = badWord == stemmer.Stem(word.String())
+				} else {
+					isBadWord = badWord == word.String()
+				}
+
+				if isBadWord {
+					result.WriteString(strings.Repeat("*", len([]rune(rawWord.String()))))
+					censored = true
+				} else {
+					result.WriteString(rawWord.String())
+				}
+			} else {
+				result.WriteString(rawWord.String())
+			}
+			if postWord.Len() > 0 {
+				result.WriteString(postWord.String())
+			}
+			postWord.Reset()
+			word.Reset()
+			endOfWord = false
+			possibleBadPart.Reset()
+			cursor.Reset()
+			inWord = false
+			newWord = true
+			hasBadWord = false
+			rawWord.Reset()
+		}
+		// if !inWord && !unicode.IsLetter(ch) {
+		// 	result.WriteRune(ch)
+		// }
 	}
-
-	if postPrefix.Len() > 0 {
-		result.WriteString(postPrefix.String())
-	}
-
 	return result.String(), censored
-}
-
-func (c *Censor) isBadWord(word string, langs ...string) (bool, bool) {
-	word = strings.ToLower(word)
-	var hasPrefix, isCompleteWord bool
-	for _, lang := range langs {
-		if dict, ok := c.dicts[lang]; ok {
-			stemmer := c.stemmers[lang]
-			if stemmer != nil {
-				word = stemmer.Stem(word)
-			}
-			hasPrefix, isCompleteWord = dict.StartsWith(word)
-			if isCompleteWord {
-				return true, true
-			}
-		}
-	}
-
-	return hasPrefix, false
-}
-
-func (c Censor) filterCharacter(ch rune) rune {
-	ch = unicode.ToLower(ch)
-	if unicode.IsLetter(ch) {
-		return ch
-	}
-	return -1
 }
