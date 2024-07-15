@@ -111,3 +111,50 @@ func (t *Trie) remove(node *trieNode, word string, index int) bool {
 
 	return false
 }
+
+func (t *Trie) Cursor() *TrieCursor {
+	return NewTrieCursor(t.root)
+}
+
+// TrieCursor manages traversal within a trie data structure, allowing for character-by-character navigation.
+type TrieCursor struct {
+	root    *trieNode
+	current *trieNode
+}
+
+// NewTrieCursor initializes a TrieCursor with a given root node of the trie.
+// This function sets both the root and current pointers to the provided rootNode, preparing the cursor for navigation.
+// Parameters:
+//   - rootNode: A pointer to the root node of the trie from which navigation will start.
+//
+// Returns:
+//   - A pointer to the newly created TrieCursor instance.
+func NewTrieCursor(rootNode *trieNode) *TrieCursor {
+	return &TrieCursor{
+		root:    rootNode,
+		current: rootNode,
+	}
+}
+
+// Advance attempts to move the cursor forward in the trie based on the provided character.
+// This method checks if the current node has a child corresponding to the character and, if so, moves the cursor to that child node.
+// Parameters:
+//   - ch: The rune character to advance the cursor by.
+//
+// Returns:
+//   - A boolean indicating whether the cursor successfully moved to a child node.
+//   - A boolean indicating whether the new current node marks the end of a word in the trie.
+func (cursor *TrieCursor) Advance(ch rune) (bool, bool) {
+	if nextNode, exists := cursor.current.children[ch]; exists {
+		cursor.current = nextNode
+		return true, nextNode.isEnd
+	}
+	return false, false
+}
+
+// Reset repositions the cursor back to the root of the trie.
+// This method is useful for restarting a traversal from the beginning of the trie
+// without creating a new TrieCursor instance.
+func (cursor *TrieCursor) Reset() {
+	cursor.current = cursor.root
+}

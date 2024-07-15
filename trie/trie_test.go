@@ -102,3 +102,42 @@ func TestTrie_Remove(t *testing.T) {
 	f("bandit", true)
 	f("band", false)
 }
+
+func TestTrie_Cursor(t *testing.T) {
+	trie := NewTrie()
+
+	wordsToInsert := []string{"apple", "app", "banana", "band", "bandit"}
+	for _, word := range wordsToInsert {
+		trie.Insert(word)
+	}
+
+	cursor := trie.Cursor()
+
+	f := func(ch rune, hasPrefix, isEnd bool) {
+		t.Helper()
+
+		gotHasPrefix, gotIsEnd := cursor.Advance(ch)
+		if gotHasPrefix != hasPrefix {
+			t.Errorf("CheckCharacter(%q) hasPrefix = %v; want %v", ch, gotHasPrefix, hasPrefix)
+		}
+
+		if gotIsEnd != isEnd {
+			t.Errorf("CheckCharacter(%q) isEnd = %v; want %v", ch, gotIsEnd, isEnd)
+		}
+	}
+
+	f('a', true, false)
+	f('p', true, false)
+	f('p', true, true)
+	f('l', true, false)
+	f('s', false, false)
+	f('e', true, true)
+	f('s', false, false)
+	f('b', false, false)
+
+	cursor.Reset()
+	f('b', true, false)
+	f('a', true, false)
+	f('n', true, false)
+	f('d', true, true)
+}
