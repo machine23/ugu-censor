@@ -1,7 +1,6 @@
 package ugucensor
 
 import (
-	"fmt"
 	"strings"
 	"unicode"
 
@@ -104,23 +103,19 @@ func (c *Censor) CensorText(text string, lang string) (string, bool) {
 				}
 			}
 		} else {
-			endOfWord = !newWord && !hasBadPrefix
+			endOfWord = !newWord && (!hasBadPrefix || hasBadWord)
 		}
 
 		endOfWord = endOfWord || i == lenRunes-1
 
 		// write result
-		// fmt.Println(i, word.String())
 
 		if endOfWord {
-			fmt.Println("word", word.String())
 			if hasBadWord {
 				stemmer := c.stemmers[lang]
-				var isBadWord bool
-				if stemmer != nil {
+				isBadWord := badWord == word.String()
+				if stemmer != nil && !isBadWord {
 					isBadWord = badWord == stemmer.Stem(word.String())
-				} else {
-					isBadWord = badWord == word.String()
 				}
 
 				if isBadWord {
@@ -145,9 +140,6 @@ func (c *Censor) CensorText(text string, lang string) (string, bool) {
 			hasBadWord = false
 			rawWord.Reset()
 		}
-		// if !inWord && !unicode.IsLetter(ch) {
-		// 	result.WriteRune(ch)
-		// }
 	}
 	return result.String(), censored
 }
