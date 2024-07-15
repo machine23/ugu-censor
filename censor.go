@@ -3,6 +3,7 @@ package ugucensor
 import (
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/machine23/ugu-censor/trie"
 	ugustemmer "github.com/machine23/ugu-stemmer"
@@ -46,53 +47,56 @@ func (c *Censor) AddWords(words []string, lang string) {
 }
 
 func (c *Censor) CensorText(text string, lang string) (string, bool) {
-	var result strings.Builder
-	var censored bool
-	var possibleBadPart strings.Builder
-	var word strings.Builder
-	var rawWord strings.Builder
-	var postWord strings.Builder
-	var endOfWord bool
-	var inWord bool
+	var (
+		result          strings.Builder
+		possibleBadPart strings.Builder
+		word            strings.Builder
+		rawWord         strings.Builder
+		postWord        strings.Builder
 
-	var hasBadPrefix bool
-	var hasBadPart bool
-	var hasBadWord bool
-	var badWord string
+		endOfWord    bool
+		inWord       bool
+		censored     bool
+		hasBadPrefix bool
+		hasBadPart   bool
+		hasBadWord   bool
+		isLetter     bool
+		badWord      string
+	)
+	result.Grow(len(text))
 
 	cursor := c.dicts[lang].Cursor()
 
 	runes := []rune(text)
 	lenRunes := len(runes)
 	newWord := true
+
+	stemmer := c.stemmers[lang]
+
 	for i, ch := range runes {
-		if unicode.IsLetter(ch) {
-			inWord = inWord || true
-		}
-		if inWord {
-			if unicode.IsLetter(ch) {
-				if postWord.Len() > 0 {
-					rawWord.WriteString(postWord.String())
-					postWord.Reset()
-				}
-				rawWord.WriteRune(ch)
-				word.WriteRune(ch)
-			} else {
-				postWord.WriteRune(ch)
-			}
-		} else {
+		isLetter = unicode.IsLetter(ch)
+		inWord = inWord || isLetter
+		if !inWord {
 			result.WriteRune(ch)
 			continue
 		}
 
-		if unicode.IsLetter(ch) {
+		if isLetter {
+			if postWord.Len() > 0 {
+				rawWord.WriteString(postWord.String())
+				postWord.Reset()
+			}
+			rawWord.WriteRune(ch)
+			word.WriteRune(ch)
+
 			if newWord || hasBadPrefix {
 				newWord = false
+				lowerCh := unicode.ToLower(ch)
 
-				hasBadPrefix, hasBadPart = cursor.Advance(unicode.ToLower(ch))
+				hasBadPrefix, hasBadPart = cursor.Advance(lowerCh)
 				if hasBadPrefix {
 					inWord = true
-					possibleBadPart.WriteRune(unicode.ToLower(ch))
+					possibleBadPart.WriteRune(lowerCh)
 					if hasBadPart {
 						hasBadWord = true
 						badWord = possibleBadPart.String()
@@ -103,6 +107,7 @@ func (c *Censor) CensorText(text string, lang string) (string, bool) {
 				}
 			}
 		} else {
+			postWord.WriteRune(ch)
 			endOfWord = !newWord && (!hasBadPrefix || hasBadWord)
 		}
 
@@ -111,21 +116,22 @@ func (c *Censor) CensorText(text string, lang string) (string, bool) {
 		// write result
 
 		if endOfWord {
+			rawWordStr := rawWord.String()
 			if hasBadWord {
-				stemmer := c.stemmers[lang]
-				isBadWord := badWord == word.String()
+				wordStr := word.String()
+				isBadWord := badWord == wordStr
 				if stemmer != nil && !isBadWord {
-					isBadWord = badWord == stemmer.Stem(word.String())
+					isBadWord = badWord == stemmer.Stem(wordStr)
 				}
 
 				if isBadWord {
-					result.WriteString(strings.Repeat("*", len([]rune(rawWord.String()))))
+					result.WriteString(strings.Repeat("*", utf8.RuneCountInString(rawWordStr)))
 					censored = true
 				} else {
-					result.WriteString(rawWord.String())
+					result.WriteString(rawWordStr)
 				}
 			} else {
-				result.WriteString(rawWord.String())
+				result.WriteString(rawWordStr)
 			}
 			if postWord.Len() > 0 {
 				result.WriteString(postWord.String())

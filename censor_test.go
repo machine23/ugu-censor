@@ -95,3 +95,17 @@ func TestCensor_CensorText(t *testing.T) {
 		f("Торгует яблоками.", "Торгует ********.", true)
 	})
 }
+
+func BenchmarkCensorText(b *testing.B) {
+	c := NewCensor()
+
+	words := []string{"игра", "яблоко"}
+	c.AddWords(words, "ru")
+
+	text := "Это та самая игра, которую я видел вчера. Яблоко было вкусным. Хотя после игры яблоко уже не казалось таким вкусным."
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = c.CensorText(text, "ru")
+	}
+}
