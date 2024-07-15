@@ -72,6 +72,7 @@ func (c *Censor) CensorText(text string, lang string) (string, bool) {
 	newWord := true
 
 	stemmer := c.stemmers[lang]
+	dict := c.dicts[lang]
 
 	for i, ch := range runes {
 		isLetter = unicode.IsLetter(ch)
@@ -82,16 +83,16 @@ func (c *Censor) CensorText(text string, lang string) (string, bool) {
 		}
 
 		if isLetter {
+			lowerCh := unicode.ToLower(ch)
 			if postWord.Len() > 0 {
 				rawWord.WriteString(postWord.String())
 				postWord.Reset()
 			}
 			rawWord.WriteRune(ch)
-			word.WriteRune(ch)
+			word.WriteRune(lowerCh)
 
 			if newWord || hasBadPrefix {
 				newWord = false
-				lowerCh := unicode.ToLower(ch)
 
 				hasBadPrefix, hasBadPart = cursor.Advance(lowerCh)
 				if hasBadPrefix {
@@ -121,7 +122,7 @@ func (c *Censor) CensorText(text string, lang string) (string, bool) {
 				wordStr := word.String()
 				isBadWord := badWord == wordStr
 				if stemmer != nil && !isBadWord {
-					isBadWord = badWord == stemmer.Stem(wordStr)
+					isBadWord = dict.Search(stemmer.Stem(wordStr))
 				}
 
 				if isBadWord {
@@ -145,6 +146,7 @@ func (c *Censor) CensorText(text string, lang string) (string, bool) {
 			newWord = true
 			hasBadWord = false
 			rawWord.Reset()
+			badWord = ""
 		}
 	}
 	return result.String(), censored
