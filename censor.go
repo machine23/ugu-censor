@@ -47,6 +47,10 @@ func (c *Censor) AddWords(words []string, lang string) {
 }
 
 func (c *Censor) CensorText(text string, lang string) (string, bool) {
+	return c.onePassCensorText(text, lang)
+}
+
+func (c *Censor) onePassCensorText(text string, lang string) (string, bool) {
 	var (
 		result          strings.Builder
 		possibleBadPart strings.Builder
