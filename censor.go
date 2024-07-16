@@ -47,7 +47,7 @@ func (c *Censor) AddWords(words []string, lang string) {
 }
 
 func (c *Censor) CensorText(text string, lang string) (string, bool) {
-	return c.onePassCensorText(text, lang)
+	return c.twoPassCensorText(text, lang)
 }
 
 func (c *Censor) onePassCensorText(text string, lang string) (string, bool) {
@@ -154,4 +154,173 @@ func (c *Censor) onePassCensorText(text string, lang string) (string, bool) {
 		}
 	}
 	return result.String(), censored
+}
+
+type PossibleBadWordBounds struct {
+	BadPart string
+	Word    string
+	Start   int
+	End     int
+}
+
+func (c *Censor) twoPassCensorText(text string, lang string) (string, bool) {
+	var (
+		result   strings.Builder
+		censored bool
+
+		possibleBadWordStarts []int
+	)
+
+	result.Grow(len(text))
+
+	stemmer := c.stemmers[lang]
+
+	runes := []rune(text)
+
+	// first pass
+	// find all possible bad word starts
+
+	possibleBadWordStarts = c.findPossibleBadWordStarts(runes, lang)
+
+	// second pass
+	// check all possible bad word starts and censor them
+
+	wordBounds := c.findPossibleBadWordBounds(runes, possibleBadWordStarts, lang)
+
+	if len(wordBounds) == 0 {
+		return text, false
+	}
+
+	// check all possible bad words, censor them and write result
+
+	for i, wb := range wordBounds {
+		// Determine the previous end index or start from 0
+		prevEnd := 0
+		if i > 0 {
+			prevEnd = wordBounds[i-1].End
+		}
+		// Append the text before the current word
+		result.WriteString(string(runes[prevEnd:wb.Start]))
+
+		// Check if the word is a bad word, either directly or via the stemmer
+		isBadWord := wb.Word == wb.BadPart ||
+			(stemmer != nil && c.dicts[lang].Search(stemmer.Stem(wb.Word)))
+
+		if isBadWord {
+			// Replace the bad word with asterisks
+			result.WriteString(strings.Repeat("*", wb.End-wb.Start))
+			censored = true
+			continue
+		}
+
+		// Append the current word as it is not censored
+		result.WriteString(string(runes[wb.Start:wb.End]))
+	}
+
+	// write the rest of the text
+	result.WriteString(string(runes[wordBounds[len(wordBounds)-1].End:]))
+
+	return result.String(), censored
+}
+
+func (c *Censor) findPossibleBadWordStarts(runes []rune, lang string) []int {
+	var (
+		possibleBadWordStarts []int
+		newWord               bool
+
+		cursor   = c.dicts[lang].Cursor()
+		lenRunes = len(runes)
+	)
+
+	for i, ch := range runes {
+		isLetter := unicode.IsLetter(ch)
+		if isLetter {
+			newWord = i == 0 || !unicode.IsLetter(runes[i-1])
+		}
+
+		if newWord {
+			cursor.Reset()
+
+			// check first letter
+			bp, _ := cursor.Advance(unicode.ToLower(ch))
+			if !bp {
+				continue
+			}
+
+			// find and check second letter, skip all non-letters
+			// if there is no second letter, then it's not a bad word
+			// if second letter is prefix of bad word, then add i index
+			// to possibleBadWordStarts
+			for j := i + 1; j < lenRunes; j++ {
+				nextCh := runes[j]
+				if unicode.IsLetter(nextCh) {
+					possibleBadWordStart, _ := cursor.Advance(unicode.ToLower(nextCh))
+					if possibleBadWordStart {
+						possibleBadWordStarts = append(possibleBadWordStarts, i)
+					}
+					break
+				}
+			}
+		}
+	}
+	return possibleBadWordStarts
+}
+
+func (c *Censor) findPossibleBadWordBounds(runes []rune, starts []int, lang string) []PossibleBadWordBounds {
+	var (
+		badWords []PossibleBadWordBounds
+		cursor   = c.dicts[lang].Cursor()
+		lenRunes = len(runes)
+	)
+
+	var badPart strings.Builder
+	var badWord strings.Builder
+	for _, bwStart := range starts {
+		cursor.Reset()
+		var hasBadWord bool
+		var hasBadPrefix, hasBadPart bool
+
+		badPart.Reset()
+		badWord.Reset()
+
+		badWordBounds := PossibleBadWordBounds{}
+		for i := bwStart; i < lenRunes; i++ {
+			ch := unicode.ToLower(runes[i])
+			if unicode.IsLetter(ch) {
+				hasBadPrefix, hasBadPart = cursor.Advance(ch)
+				if !hasBadPrefix && !hasBadWord {
+					break
+				}
+
+				if hasBadPrefix {
+					badPart.WriteRune(ch)
+				}
+
+				badWord.WriteRune(ch)
+
+				if !hasBadWord && hasBadPart {
+					hasBadWord = true
+					badWordBounds.BadPart = badPart.String()
+				}
+
+				if i == lenRunes-1 && hasBadWord {
+					badWordBounds.Start = bwStart
+					badWordBounds.End = i + 1
+					badWordBounds.Word = badWord.String()
+					badWords = append(badWords, badWordBounds)
+				}
+			} else {
+				if hasBadWord {
+					badWordBounds.Start = bwStart
+					badWordBounds.End = i
+					badWordBounds.Word = badWord.String()
+					badWords = append(badWords, badWordBounds)
+					break
+				}
+			}
+
+		}
+
+	}
+	return badWords
 }
