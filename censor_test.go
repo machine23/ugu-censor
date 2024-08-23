@@ -262,3 +262,62 @@ func TestCensor_findPossibleBadWordBounds(t *testing.T) {
 		f("игра *1*а*я*я******  ...****б*л*о*к*о", []int{0, 12}, []PossibleBadWordBounds{{"игр", "игра", 0, 4}, {"яблок", "яблок", 12, 35}})
 	})
 }
+
+func TestCensor_HasProfanity(t *testing.T) {
+	c := NewCensor()
+
+	words := []string{"игра", "игрок", "играть", "яблоко"}
+	c.AddWords(words, "ru")
+
+	f := func(text string, expected bool) {
+		t.Helper()
+
+		got := c.HasProfanity(text, "ru")
+		if got != expected {
+			t.Errorf("\nHasProfanity(%q, \"ru\")\n\tgot : %v\n\twant: %v", text, got, expected)
+		}
+	}
+
+	t.Run("empty text", func(t *testing.T) {
+		f("", false)
+	})
+
+	t.Run("clean text", func(t *testing.T) {
+		f("Это чистый текст.", false)
+	})
+
+	t.Run("single word", func(t *testing.T) {
+		f("игра", true)
+		f("яблоко", true)
+	})
+
+	t.Run("case insensitive one word", func(t *testing.T) {
+		f("Игра", true)
+		f("ИГРА", true)
+		f("ЯбЛоКо", true)
+	})
+
+	t.Run("text with one word", func(t *testing.T) {
+		f("Это игра", true)
+		f("игра это", true)
+		f("игра игра", true)
+		f("игра яблоко", true)
+		f("игра яблоко игра", true)
+		f("Эта игра хорошая", true)
+		f("лучшая игра", true)
+		f("игра лучшая", true)
+	})
+
+	t.Run("complex text", func(t *testing.T) {
+		f("Самой лучшей игрой является игра, в которую играют игроки.", true)
+		f("Пошли на базар, чтобы купить яблоко.", true)
+		f("На этом базаре были все возможные виды фруктов, но мы искали только яблоки.", true)
+		f("Только яблоками можно было угостить гостей.", true)
+	})
+
+	t.Run("no false positives", func(t *testing.T) {
+		f("играция", false)
+		f("и грация", false)
+		f("подвиг радость", false)
+	})
+}

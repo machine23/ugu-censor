@@ -163,6 +163,33 @@ type PossibleBadWordBounds struct {
 	End     int
 }
 
+func (c *Censor) HasProfanity(text string, lang string) bool {
+	stemmer := c.stemmers[lang]
+
+	runes := []rune(text)
+
+	possibleBadWordStarts := c.findPossibleBadWordStarts(runes, lang)
+
+	// second pass
+	// check possible bad words and return true if found first one
+
+	wordBounds := c.findPossibleBadWordBounds(runes, possibleBadWordStarts, lang)
+	if len(wordBounds) == 0 {
+		return false
+	}
+
+	for _, wb := range wordBounds {
+		isBadWord := wb.Word == wb.BadPart ||
+			(stemmer != nil && c.dicts[lang].Search(stemmer.Stem(wb.Word)))
+
+		if isBadWord {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (c *Censor) twoPassCensorText(text string, lang string) (string, bool) {
 	var (
 		result   strings.Builder
