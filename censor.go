@@ -156,7 +156,7 @@ func (c *Censor) onePassCensorText(text string, lang string) (string, bool) {
 	return result.String(), censored
 }
 
-type PossibleBadWordBounds struct {
+type possibleBadWordBounds struct {
 	BadPart string
 	Word    string
 	Start   int
@@ -293,9 +293,9 @@ func (c *Censor) findPossibleBadWordStarts(runes []rune, lang string) []int {
 	return possibleBadWordStarts
 }
 
-func (c *Censor) findPossibleBadWordBounds(runes []rune, starts []int, lang string) []PossibleBadWordBounds {
+func (c *Censor) findPossibleBadWordBounds(runes []rune, starts []int, lang string) []possibleBadWordBounds {
 	var (
-		badWords []PossibleBadWordBounds
+		badWords []possibleBadWordBounds
 		cursor   = c.dicts[lang].Cursor()
 		lenRunes = len(runes)
 	)
@@ -310,7 +310,7 @@ func (c *Censor) findPossibleBadWordBounds(runes []rune, starts []int, lang stri
 		badPart.Reset()
 		badWord.Reset()
 
-		badWordBounds := PossibleBadWordBounds{}
+		badWordBounds := possibleBadWordBounds{}
 		for i := bwStart; i < lenRunes; i++ {
 			ch := unicode.ToLower(runes[i])
 			if unicode.IsLetter(ch) {

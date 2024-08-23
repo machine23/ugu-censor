@@ -213,7 +213,7 @@ func TestCensor_findPossibleBadWordBounds(t *testing.T) {
 	words := []string{"игра", "игрок", "играть", "яблоко"}
 	c.AddWords(words, "ru")
 
-	f := func(text string, starts []int, expected []PossibleBadWordBounds) {
+	f := func(text string, starts []int, expected []possibleBadWordBounds) {
 		t.Helper()
 
 		got := c.findPossibleBadWordBounds([]rune(text), starts, "ru")
@@ -231,35 +231,35 @@ func TestCensor_findPossibleBadWordBounds(t *testing.T) {
 	}
 
 	t.Run("empty text", func(t *testing.T) {
-		f("", []int{}, []PossibleBadWordBounds{})
+		f("", []int{}, []possibleBadWordBounds{})
 	})
 
 	t.Run("clean text", func(t *testing.T) {
-		f("Это чистый текст.", []int{}, []PossibleBadWordBounds{})
+		f("Это чистый текст.", []int{}, []possibleBadWordBounds{})
 	})
 
 	t.Run("single word", func(t *testing.T) {
-		f("игра", []int{0}, []PossibleBadWordBounds{{"игр", "игра", 0, 4}})
-		f("яблоко", []int{0}, []PossibleBadWordBounds{{"яблок", "яблоко", 0, 6}})
+		f("игра", []int{0}, []possibleBadWordBounds{{"игр", "игра", 0, 4}})
+		f("яблоко", []int{0}, []possibleBadWordBounds{{"яблок", "яблоко", 0, 6}})
 	})
 
 	t.Run("multiple words", func(t *testing.T) {
-		f("это игра", []int{4}, []PossibleBadWordBounds{{"игр", "игра", 4, 8}})
-		f("игра это", []int{0}, []PossibleBadWordBounds{{"игр", "игра", 0, 4}})
-		f("игра игра", []int{0, 5}, []PossibleBadWordBounds{{"игр", "игра", 0, 4}, {"игр", "игра", 5, 9}})
-		f("игра яблоко", []int{0, 5}, []PossibleBadWordBounds{{"игр", "игра", 0, 4}, {"яблок", "яблоко", 5, 11}})
-		f("яблоко и игра", []int{0, 9}, []PossibleBadWordBounds{{"яблок", "яблоко", 0, 6}, {"игр", "игра", 9, 13}})
-		f("игра яблоко игра", []int{0, 5, 12}, []PossibleBadWordBounds{{"игр", "игра", 0, 4}, {"яблок", "яблоко", 5, 11}, {"игр", "игра", 12, 16}})
+		f("это игра", []int{4}, []possibleBadWordBounds{{"игр", "игра", 4, 8}})
+		f("игра это", []int{0}, []possibleBadWordBounds{{"игр", "игра", 0, 4}})
+		f("игра игра", []int{0, 5}, []possibleBadWordBounds{{"игр", "игра", 0, 4}, {"игр", "игра", 5, 9}})
+		f("игра яблоко", []int{0, 5}, []possibleBadWordBounds{{"игр", "игра", 0, 4}, {"яблок", "яблоко", 5, 11}})
+		f("яблоко и игра", []int{0, 9}, []possibleBadWordBounds{{"яблок", "яблоко", 0, 6}, {"игр", "игра", 9, 13}})
+		f("игра яблоко игра", []int{0, 5, 12}, []possibleBadWordBounds{{"игр", "игра", 0, 4}, {"яблок", "яблоко", 5, 11}, {"игр", "игра", 12, 16}})
 	})
 
 	t.Run("with symbols", func(t *testing.T) {
-		f("игра. яблоко", []int{0, 6}, []PossibleBadWordBounds{{"игр", "игра", 0, 4}, {"яблок", "яблоко", 6, 12}})
-		f("игра.яблоко", []int{0, 5}, []PossibleBadWordBounds{{"игр", "игра", 0, 4}, {"яблок", "яблоко", 5, 11}})
-		f("  игра. яблоко", []int{2, 8}, []PossibleBadWordBounds{{"игр", "игра", 2, 6}, {"яблок", "яблоко", 8, 14}})
-		f("игра. яблоко  ", []int{0, 6}, []PossibleBadWordBounds{{"игр", "игра", 0, 4}, {"яблок", "яблоко", 6, 12}})
-		f("игра.>яблоко.", []int{0, 6}, []PossibleBadWordBounds{{"игр", "игра", 0, 4}, {"яблок", "яблоко", 6, 12}})
-		f("***и*г*р*а* яблоко", []int{3, 12}, []PossibleBadWordBounds{{"игр", "игр", 3, 8}, {"яблок", "яблоко", 12, 18}})
-		f("игра *1*а*я*я******  ...****б*л*о*к*о", []int{0, 12}, []PossibleBadWordBounds{{"игр", "игра", 0, 4}, {"яблок", "яблок", 12, 35}})
+		f("игра. яблоко", []int{0, 6}, []possibleBadWordBounds{{"игр", "игра", 0, 4}, {"яблок", "яблоко", 6, 12}})
+		f("игра.яблоко", []int{0, 5}, []possibleBadWordBounds{{"игр", "игра", 0, 4}, {"яблок", "яблоко", 5, 11}})
+		f("  игра. яблоко", []int{2, 8}, []possibleBadWordBounds{{"игр", "игра", 2, 6}, {"яблок", "яблоко", 8, 14}})
+		f("игра. яблоко  ", []int{0, 6}, []possibleBadWordBounds{{"игр", "игра", 0, 4}, {"яблок", "яблоко", 6, 12}})
+		f("игра.>яблоко.", []int{0, 6}, []possibleBadWordBounds{{"игр", "игра", 0, 4}, {"яблок", "яблоко", 6, 12}})
+		f("***и*г*р*а* яблоко", []int{3, 12}, []possibleBadWordBounds{{"игр", "игр", 3, 8}, {"яблок", "яблоко", 12, 18}})
+		f("игра *1*а*я*я******  ...****б*л*о*к*о", []int{0, 12}, []possibleBadWordBounds{{"игр", "игра", 0, 4}, {"яблок", "яблок", 12, 35}})
 	})
 }
 
